@@ -2,6 +2,7 @@
 from rit_lib import rit
 
 # %%
-lt3 = rit()
-# %%
-lt3.lt3()
+counter = 0
+while counter < 5:
+    case = rit(mode='auto')
+    counter += 1

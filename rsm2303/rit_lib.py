@@ -85,7 +85,6 @@ class rit:
         print(f"{number_of_orders} in total will be sent to RIT...")
         if action == 'BUY':
             res = {
-                'ids':[],
                 'ticker': ticker,
                 'action': 'BUY',
                 'quantity_filled': 0,
@@ -93,7 +92,6 @@ class rit:
             }
         else:
             res = {
-                'ids':[],
                 'ticker': ticker,
                 'action': 'SELL',
                 'quantity_filled': 0,
@@ -120,7 +118,6 @@ class rit:
             order = order_req.json()
             print(f"Order #{order_count} is sent, quantity = {payload['quantity']}!")
             print(f"Order #{order_count} status: {order_req.status_code}; RIT confirmation message: {order}")
-            res['ids'].append(res['order_id'])
             if order['quantity_filled'] != 0:
                 res['vwap'] = (res['vwap'] * res['quantity_filled'] + order['vwap'] * order['quantity_filled'])/(res['quantity_filled'] + order['quantity_filled'])
                 res['quantity_filled'] += order['quantity_filled']
@@ -144,7 +141,6 @@ class rit:
         order = order_req.json()
         print(f"Order #{order_count} is sent, quantity = {payload['quantity']}!")
         print(f"Order #{order_count} status: {order_req.status_code}; RIT confirmation message: {order}")
-        res['ids'].append(order['order_id'])
         if order['quantity_filled'] != 0:        
             res['vwap'] = (res['vwap'] * res['quantity_filled'] + order['vwap'] * order['quantity_filled'])/(res['quantity_filled'] + order['quantity_filled'])
             res['quantity_filled'] += order['quantity_filled']
@@ -393,10 +389,14 @@ class rit:
                                     os_position += open_order['quantity'] - open_order['quantity_filled']
                             else:
                                 print(f"All limit orders are filled in {limit_order_toc-limit_order_tic:0.6f}s!!!")
-                                
-                            if os_position > 0:
+                            
+                            os_position_res = self.get_securities(tender_ticker)
+                            os_position = os_position_res.json()[0]['position']
+                            if os_position != 0:
                                 print(f"All order book cleared, {os_position} remaining, fill with market order")
                                 self.insert_order(tender_ticker,os_position,"MARKET","SELL")
+                            else:
+                                print(f"tender order cleared with limit orders")
                         else: 
                             execute_tender_status = 0
                             while execute_tender_status != 200:
@@ -468,13 +468,16 @@ class rit:
                                 for open_order in open_orders:
                                     del_req = self.delete_order(open_order['order_id'])
                                     print(f"Delete order {open_order['order_id']}; Status: {del_req.status_code}")
-                                    os_position += open_order['quantity'] - open_order['quantity_filled']
                             else:
                                 print(f"All limit orders are filled in {limit_order_toc-limit_order_tic:0.6f}s!!!")
 
-                            if os_position > 0:
+                            os_position_res = self.get_securities(tender_ticker)
+                            os_position = os_position_res.json()[0]['position']
+                            if os_position != 0:
                                 print(f"All order book cleared, {os_position} remaining, fill with market order")
-                                self.insert_order(tender_ticker,os_position,"MARKET","BUY")
+                                self.insert_order(tender_ticker,os_position*-1,"MARKET","BUY")
+                            else:
+                                print(f"tender order cleared with limit orders")
                                 
                         else: 
                             execute_tender_status = 0

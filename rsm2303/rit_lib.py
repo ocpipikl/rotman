@@ -302,7 +302,7 @@ class rit:
             )
             time.sleep(wait_time)
 
-    def lt3(self,safe_margin = 0,price_epsilon = 0.01):
+    def lt3(self,safe_margin = 1000,price_epsilon = 0.02):
         while self.rit_status == 1:
             case_res = self.get_case()
             case = case_res.json()
@@ -360,12 +360,12 @@ class rit:
                                 print('next order book',os_position,order['quantity'] - order['quantity_filled'])
                                 if (os_position > 0) & (os_position>=(order['quantity'] - order['quantity_filled'])) & (order['quantity'] - order['quantity_filled'] > 0):
                                     # print('sell logic 1') ##Line for debugging
-                                    order_req = self.insert_order(tender_ticker,(order['quantity']-order['quantity_filled']),"LIMIT","SELL",order['price']-price_epsilon)
+                                    order_req = self.insert_order(tender_ticker,(order['quantity']-order['quantity_filled']),"LIMIT","SELL",tender_price+price_epsilon)
                                     os_position -= order['quantity']-order['quantity_filled']
                                     print(f"{os_position} remaining to fill")
                                 elif (os_position > 0) & (os_position<(order['quantity'] - order['quantity_filled'])) & (order['quantity'] - order['quantity_filled'] > 0):
                                     # print('sell logic 2') ##Line for debugging
-                                    order_req = self.insert_order(tender_ticker,os_position,"LIMIT","SELL",order['price']-price_epsilon)
+                                    order_req = self.insert_order(tender_ticker,os_position,"LIMIT","SELL",tender_price+price_epsilon)
                                     os_position = 0
                                     print(f"{os_position} remaining to fill")
                             print(f"All limit orders submitted in {time.perf_counter()-limit_order_tic:0.6f}s") #this is a timer for testing
@@ -442,12 +442,12 @@ class rit:
                                 print('next order book',os_position,order['quantity'] - order['quantity_filled'])
                                 if (os_position > 0) & (os_position>=(order['quantity'] - order['quantity_filled'])) & (order['quantity'] - order['quantity_filled'] > 0):
                                     # print('buy logic 1') ##Line for debugging
-                                    order_req = self.insert_order(tender_ticker,(order['quantity']-order['quantity_filled']),"LIMIT","BUY",order['price']+price_epsilon)
+                                    order_req = self.insert_order(tender_ticker,(order['quantity']-order['quantity_filled']),"LIMIT","BUY",tender_price-price_epsilon)
                                     os_position -= order['quantity']-order['quantity_filled']
                                     print(f"{os_position} remaining to fill")
                                 elif (os_position > 0) & (os_position<(order['quantity'] - order['quantity_filled'])) & (order['quantity'] - order['quantity_filled'] > 0):
                                     # print('buy logic 2') ##Line for debugging
-                                    order_req = self.insert_order(tender_ticker,os_position,"LIMIT","BUY",order['price']+price_epsilon)
+                                    order_req = self.insert_order(tender_ticker,os_position,"LIMIT","BUY",tender_price-price_epsilon)
                                     os_position = 0
                                     print(f"{os_position} remaining to fill")
                             print(f"All limit orders submitted in {time.perf_counter()-limit_order_tic:0.6f}s") #this is a timer for testing

@@ -186,6 +186,14 @@ class rit:
     def wait(self,seconds):
         time.sleep(seconds)
 
+    def calc_var(self,w1,w2,w3,e1,e2,e3,sig1,sig2,sig3,rho12,rho13,rho23):
+        er = w1*e1+w2*e2+w3*e3
+        variance = (w1**2)*(sig1**2)+(w2**2)*(sig2**2)+(w3**2)*(sig3**2)+(2*w1*w2)*(sig1*sig2)*rho12+(2*w1*w3)*(sig1*sig3)*rho13+(2*w2*w3)*(sig2*sig3)*rho23
+        sig = variance**0.5
+        z = -2.32634787404084
+        return er+z*sig
+
+
     ##check connection and query case info
     def prepare_algo(self):
         print("Algo Initiated")
@@ -493,7 +501,205 @@ class rit:
             self.wait(self.refresh_rate)
             self.rit_status = rit_status_map[case['status']]
                             
-                                
+
+    def var(self,mode='news'):
+        self.wait(0.9)
+        self.insert_order('US',2950,'MARKET','BUY')
+        self.wait(0.1)
+        self.insert_order('BRIC',2950,'MARKET','BUY')
+        self.wait(0.1)
+        self.insert_order('BOND',2950,'MARKET','BUY')
+        self.wait(0.1)
+
+        e1 = 0.0835/252
+        e2 = 0.1489/252
+        e3 = 0.0582/252
+
+        sig1 = 0.2085/(252**0.5)
+        sig2 = 0.2524/(252**0.5)
+        sig3 = 0.0869/(252**0.5)
+
+        rho12 = 0.48
+        rho13 = 0.068
+        rho23 = 0.005
+        
+        while self.rit_status == 1:
+            case_res = self.get_case()
+            case = case_res.json()
+
+            holdings = []
+
+            for i in ['US','BRIC','BOND','CASH']:
+                _holding_res = self.get_securities(i)
+                _holding_data = _holding_res.json()
+
+                _holding = {
+                    'ticker':i,
+                    'volume': _holding_data[0]['position'],
+                    'last': _holding_data[0]['last'],
+                    'mtm': _holding_data[0]['position']*_holding_data[0]['last']
+                }
+                holdings.append(_holding.copy())
+            
+            print('holdings')
+            print(holdings)
+            
+            port_value = sum([holding['mtm'] for holding in holdings])
+
+            for holding in holdings:
+                holding['weight'] = holding['mtm']/port_value
+
+            var = self.calc_var(holdings[0]['weight'],holdings[1]['weight'],holdings[2]['weight'],e1,e2,e3,sig1,sig2,sig3,rho12,rho13,rho23) * port_value * -1
+
+            print(f'portfolio value: {port_value}')
+            print(f'99% var: {var}')
+            
+            news_res = self.get_news()
+            news = news_res.json()
+
+
+            if mode == 'naive':
+                if var > 19900:
+                    self.insert_order('US',50,'MARKET','SELL')
+                    self.wait(0.1)
+                    self.insert_order('BRIC',50,'MARKET','SELL')
+                    self.wait(0.1)
+                    self.insert_order('BOND',((50*holdings[0]['last']+50*holdings[1]['last'])/holdings[2]['last'])-1,'MARKET','BUY')
+                    self.wait(0.1)
+                elif var < 18900:
+                    self.insert_order('BOND',100,'MARKET','SELL')
+                    self.wait(0.1)
+                    self.insert_order('US',50,'MARKET','BUY')
+                    self.wait(0.1)
+                    self.insert_order('BRIC',((100*holdings[2]['last']-50*holdings[0]['last'])/holdings[1]['last'])-1,'MARKET','BUY')
+                    self.wait(0.1)
+            else:
+                if len(news) == 1:
+                    if var > 19900:
+                        self.insert_order('US',50,'MARKET','SELL')
+                        self.wait(0.1)
+                        self.insert_order('BRIC',50,'MARKET','SELL')
+                        self.wait(0.1)
+                        self.insert_order('BOND',((50*holdings[0]['last']+50*holdings[1]['last'])/holdings[2]['last'])-1,'MARKET','BUY')
+                        self.wait(0.1)
+                    elif var < 18900:
+                        self.insert_order('BOND',100,'MARKET','SELL')
+                        self.wait(0.1)
+                        self.insert_order('US',50,'MARKET','BUY')
+                        self.wait(0.1)
+                        self.insert_order('BRIC',((100*holdings[2]['last']-50*holdings[0]['last'])/holdings[1]['last'])-1,'MARKET','BUY')
+                        self.wait(0.1)
+                else:
+                    last_news = news[0]
+                    last_news_body = last_news['body'].split("=")
+                    print("news")
+                    print(last_news['body'])
+                    print(last_news_body)
+                    us_target = float(last_news_body[1].split("<")[0][2:])
+                    bric_target = float(last_news_body[2].split("<")[0][2:])
+                    bond_target = float(last_news_body[2].split(">")[1][5:])
+                    print(f'target price: {us_target},{bric_target},{bond_target}')
+                    us_return = us_target/holdings[0]['last'] - 1
+                    bric_return = bric_target/holdings[1]['last'] - 1
+                    bond_return = bond_target/holdings[2]['last'] - 1
+                    print(f'target return: {us_return},{bric_return},{bond_return}')
+
+                    if max(us_return,bric_return,bond_return) == us_return:
+                        if (var < 19900) & (var > 18000):
+                            print('US return highest')
+                            self.insert_order('BRIC',10,'MARKET','SELL')
+                            self.insert_order('BOND',4,'MARKET','BUY')
+                            self.insert_order('US',((10*holdings[1]['last']-4*holdings[2]['last'])/holdings[0]['last']),'MARKET','BUY')
+                            self.wait(0.1)
+                        elif (var <= 18000):
+                            if max(bric_return,bond_return) == bric_return:
+                                self.insert_order('BOND',10,'MARKET','SELL')
+                                self.insert_order('US',((10*holdings[2]['last'])/holdings[0]['last']),'MARKET','BUY')
+                            else:
+                                self.insert_order('BRIC',10,'MARKET','SELL')
+                                self.insert_order('US',((10*holdings[1]['last'])/holdings[0]['last']),'MARKET','BUY')
+                            self.wait(0.1)
+                        else:
+                            print('Adjust down var')
+                            if holdings[1]['volume'] > 0:
+                                self.insert_order('BRIC',10,'MARKET','SELL')
+                                self.insert_order('BOND',((10*holdings[1]['last'])/holdings[2]['last']),'MARKET','BUY')
+                            else:
+                                self.insert_order('BRIC',10,'MARKET','BUY')
+                                self.insert_order('BOND',((10*holdings[1]['last'])/holdings[2]['last']),'MARKET','SELL')
+                            self.wait(0.1)
+                    
+                    elif max(us_return,bric_return,bond_return) == bric_return:
+                        if (var < 19900) & (var > 18000):
+                            print('BRIC return highest')
+                            self.insert_order('US',10,'MARKET','SELL')
+                            self.insert_order('BOND',6,'MARKET','BUY')
+                            self.insert_order('BRIC',((10*holdings[0]['last']-6*holdings[2]['last'])/holdings[1]['last']),'MARKET','BUY')
+                            self.wait(0.1)
+                        elif var <= 18000:
+                            if max(us_return,bond_return) == us_return:
+                                self.insert_order('BOND',10,'MARKET','SELL')
+                                self.insert_order('BRIC',((10*holdings[2]['last'])/holdings[0]['last']),'MARKET','BUY')
+                            else:
+                                self.insert_order('US',10,'MARKET','SELL')
+                                self.insert_order('BRIC',((10*holdings[0]['last'])/holdings[0]['last']),'MARKET','BUY')
+                            self.wait(0.1)
+                        else:
+                            print('Adjust down var')
+                            if holdings[0]['volume'] > 0:
+                                self.insert_order('US',10,'MARKET','SELL')
+                                self.insert_order('BOND',((10*holdings[0]['last'])/holdings[2]['last']),'MARKET','BUY')
+                            else:
+                                self.insert_order('US',10,'MARKET','BUY')
+                                self.insert_order('BOND',((10*holdings[0]['last'])/holdings[2]['last']),'MARKET','SELL')
+                            self.wait(0.1)
+                        
+                    else:
+                        print('BOND return highest')
+                        if max(us_return,bric_return) == us_return:
+                            self.insert_order('US',5,'MARKET','SELL')
+                            self.insert_order('BRIC',15,'MARKET','SELL')
+                            self.insert_order('BOND',((5*holdings[0]['last']+15*holdings[1]['last'])/holdings[2]['last']),'MARKET','BUY')
+                        else:
+                            self.insert_order('US',15,'MARKET','SELL')
+                            self.insert_order('BRIC',5,'MARKET','SELL')
+                            self.insert_order('BOND',((15*holdings[0]['last']+5*holdings[1]['last'])/holdings[2]['last']),'MARKET','BUY')
+                        self.wait(0.1)
+            
+            print("rebalance done")
+
+            holdings = []
+
+            for i in ['US','BRIC','BOND','CASH']:
+                _holding_res = self.get_securities(i)
+                _holding_data = _holding_res.json()
+                _holding = {
+                    'ticker':i,
+                    'volume': _holding_data[0]['position'],
+                    'last': _holding_data[0]['last'],
+                    'mtm': _holding_data[0]['position']*_holding_data[0]['last']
+                }
+                holdings.append(_holding.copy())
+            
+            port_value = sum([holding['mtm'] for holding in holdings])
+
+            for holding in holdings:
+                holding['weight'] = holding['mtm']/port_value
+            
+            var = self.calc_var(holdings[0]['weight'],holdings[1]['weight'],holdings[2]['weight'],e1,e2,e3,sig1,sig2,sig3,rho12,rho13,rho23) * port_value * -1
+
+            print(f'after rebalance portfolio value: {port_value}')
+            print(f'after rebalance 99% var: {var}')
+
+            self.rit_status = rit_status_map[case['status']]
+            self.wait(self.refresh_rate)
+            
+            
+
+
+            
+        
+
 
     #######################################
     #######################################

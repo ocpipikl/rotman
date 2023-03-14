@@ -551,7 +551,7 @@ class rit:
                             while execute_tender_status != 200:
                                 execute_tender_req = self.execute_tender(tender_id,True)
                                 execute_tender_status = execute_tender_req.status_code
-                                self.wait(0.1)
+                                self.wait(0.05)
                             print(f"Accept tender offer")
                             print(f"Tender Offer execution status: {execute_tender_status}; RIT confirmation message: {execute_tender_req.json()}")
                             tender_register_status = tender_quantiy
@@ -559,6 +559,7 @@ class rit:
                                 position_res = self.get_securities(tender_ticker)
                                 position = position_res.json()[0]['position']
                                 tender_register_status = tender_quantiy - position
+                                self.wait(0.05)
                             tender_register_toc = time.perf_counter()
                             print(f"Tender registered in {tender_register_toc - tender_register_tic:0.6f}s...")
                             os_position = tender_quantiy
@@ -575,6 +576,7 @@ class rit:
                                     order_req = self.insert_order(order['ticker'],(order['quantity']-order['quantity_filled']),"LIMIT","SELL",tender_price+price_epsilon)
                                     os_position -= order['quantity']-order['quantity_filled']
                                     print(f"{os_position} remaining to fill")
+                                    self.wait(0.05)
                                 elif (os_position > 0) & (os_position<(order['quantity'] - order['quantity_filled'])) & (order['quantity'] - order['quantity_filled'] > 0):
                                     # print('sell logic 2') ##Line for debugging
                                     order_req = self.insert_order(order['ticker'],os_position,"LIMIT","SELL",tender_price+price_epsilon)
@@ -655,12 +657,14 @@ class rit:
                             while execute_tender_status != 200:
                                 execute_tender_req = self.execute_tender(tender_id,True)
                                 execute_tender_status = execute_tender_req.status_code
+                                self.wait(0.1)
                             print(f"Tender Offer execution status: {execute_tender_status}; RIT confirmation message: {execute_tender_req.json()}")
                             tender_register_status = tender_quantiy
                             while tender_register_status != 0:
                                 position_res = self.get_securities(tender_ticker)
                                 position = position_res.json()[0]['position']
                                 tender_register_status = tender_quantiy + position
+                                self.wait(0.1)
                             tender_register_toc = time.perf_counter()
                             print(f"Tender registered in {tender_register_toc - tender_register_tic:0.6f}s...")
                             os_position = tender_quantiy
@@ -677,6 +681,7 @@ class rit:
                                     order_req = self.insert_order(order['ticker'],(order['quantity']-order['quantity_filled']),"LIMIT","BUY",tender_price-price_epsilon)
                                     os_position -= order['quantity']-order['quantity_filled']
                                     print(f"{os_position} remaining to fill")
+                                    self.wait(0.05)
                                 elif (os_position > 0) & (os_position<(order['quantity'] - order['quantity_filled'])) & (order['quantity'] - order['quantity_filled'] > 0):
                                     # print('buy logic 2') ##Line for debugging
                                     order_req = self.insert_order(order['ticker'],os_position,"LIMIT","BUY",tender_price-price_epsilon)

@@ -126,7 +126,7 @@ class rit:
             } 
         order_req = requests.post(f"{self.url}/orders",headers=self.headers,params = payload)
         order = order_req.json()
-        print(f"Order #{order_count} is sent, quantity = {payload['quantity']}!")
+        print(f"Order #{order_count} is sent!")
         print(f"Order #{order_count} status: {order_req.status_code}; RIT confirmation message: {order}")
         res.append(order)
         return res
@@ -612,7 +612,7 @@ class rit:
                                             order_req = self.insert_order(order['ticker'],(order['quantity']-order['quantity_filled']),"MARKET","SELL")
                                             os_position -= order['quantity']-order['quantity_filled']
                                             print(f"{os_position} remaining to fill")
-                                            self.wait(0.05)
+                                            self.wait(0.1)
                                         elif (os_position > 0) & (os_position<(order['quantity'] - order['quantity_filled'])) & (order['quantity'] - order['quantity_filled'] > 0):
                                             # print('sell logic 2') ##Line for debugging
                                             order_req = self.insert_order(order['ticker'],os_position,"MARKET","SELL")
@@ -714,7 +714,7 @@ class rit:
                                             order_req = self.insert_order(order['ticker'],(order['quantity']-order['quantity_filled']),"MARKET","BUY")
                                             os_position -= order['quantity']-order['quantity_filled']
                                             print(f"{os_position} remaining to fill")
-                                            self.wait(0.05)
+                                            self.wait(0.1)
                                         elif (os_position > 0) & (os_position<(order['quantity'] - order['quantity_filled'])) & (order['quantity'] - order['quantity_filled'] > 0):
                                             # print('sell logic 2') ##Line for debugging
                                             order_req = self.insert_order(order['ticker'],os_position,"MARKET","BUY")

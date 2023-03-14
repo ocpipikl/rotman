@@ -46,6 +46,8 @@ class rit:
                     self.lt3()
                 elif self.case_name == 'Algorithmic Trading 3':
                     self.algo3()
+                elif self.case_name == 'Value-at-Risk Case':
+                    self.var()
             elif mode == 'debug':
                 print('Debug mode on... \nalgo warned up... \ntrigger case methods manually...')
 
@@ -750,7 +752,7 @@ class rit:
             self.wait(self.refresh_rate)
             self.rit_status = rit_status_map[case['status']]
 
-    def var(self,mode='news'):
+    def var(self,step=10,mode='news'):
         self.wait(0.9)
         self.insert_order('US',2950,'MARKET','BUY')
         self.wait(0.1)
@@ -770,6 +772,8 @@ class rit:
         rho12 = 0.48
         rho13 = 0.068
         rho23 = 0.005
+
+        x = step
         
         while self.rit_status == 1:
             case_res = self.get_case()
@@ -808,9 +812,9 @@ class rit:
 
             if mode == 'naive':
                 if var > 19900:
-                    self.insert_order('US',50,'MARKET','SELL')
+                    self.insert_order('US',5*x,'MARKET','SELL')
                     self.wait(0.1)
-                    self.insert_order('BRIC',50,'MARKET','SELL')
+                    self.insert_order('BRIC',5*x,'MARKET','SELL')
                     self.wait(0.1)
                     self.insert_order('BOND',((50*holdings[0]['last']+50*holdings[1]['last'])/holdings[2]['last'])-1,'MARKET','BUY')
                     self.wait(0.1)
@@ -824,18 +828,18 @@ class rit:
             else:
                 if len(news) == 1:
                     if var > 19900:
-                        self.insert_order('US',50,'MARKET','SELL')
+                        self.insert_order('US',5*x,'MARKET','SELL')
                         self.wait(0.1)
-                        self.insert_order('BRIC',50,'MARKET','SELL')
+                        self.insert_order('BRIC',5*x,'MARKET','SELL')
                         self.wait(0.1)
-                        self.insert_order('BOND',((50*holdings[0]['last']+50*holdings[1]['last'])/holdings[2]['last'])-1,'MARKET','BUY')
+                        self.insert_order('BOND',((5*x*holdings[0]['last']+5*x*holdings[1]['last'])/holdings[2]['last'])-1,'MARKET','BUY')
                         self.wait(0.1)
                     elif var < 18900:
-                        self.insert_order('BOND',100,'MARKET','SELL')
+                        self.insert_order('BOND',10*x,'MARKET','SELL')
                         self.wait(0.1)
-                        self.insert_order('US',50,'MARKET','BUY')
+                        self.insert_order('US',5*x,'MARKET','BUY')
                         self.wait(0.1)
-                        self.insert_order('BRIC',((100*holdings[2]['last']-50*holdings[0]['last'])/holdings[1]['last'])-1,'MARKET','BUY')
+                        self.insert_order('BRIC',((10*x*holdings[2]['last']-5*x*holdings[0]['last'])/holdings[1]['last'])-1,'MARKET','BUY')
                         self.wait(0.1)
                 else:
                     last_news = news[0]
@@ -855,63 +859,85 @@ class rit:
                     if max(us_return,bric_return,bond_return) == us_return:
                         if (var < 19900) & (var > 18000):
                             print('US return highest')
-                            self.insert_order('BRIC',10,'MARKET','SELL')
-                            self.insert_order('BOND',4,'MARKET','BUY')
-                            self.insert_order('US',((10*holdings[1]['last']-4*holdings[2]['last'])/holdings[0]['last']),'MARKET','BUY')
+                            self.insert_order('BRIC',10*x,'MARKET','SELL')
+                            self.insert_order('BOND',2*x,'MARKET','BUY')
+                            self.insert_order('US',((10*x*holdings[1]['last']-2*x*holdings[2]['last'])/holdings[0]['last']),'MARKET','BUY')
                             self.wait(0.1)
                         elif (var <= 18000):
                             if max(bric_return,bond_return) == bric_return:
-                                self.insert_order('BOND',10,'MARKET','SELL')
-                                self.insert_order('US',((10*holdings[2]['last'])/holdings[0]['last']),'MARKET','BUY')
+                                self.insert_order('BOND',10*x,'MARKET','SELL')
+                                self.insert_order('US',((10*x*holdings[2]['last'])/holdings[0]['last']),'MARKET','BUY')
                             else:
-                                self.insert_order('BRIC',10,'MARKET','SELL')
-                                self.insert_order('US',((10*holdings[1]['last'])/holdings[0]['last']),'MARKET','BUY')
+                                self.insert_order('BRIC',10*x,'MARKET','SELL')
+                                self.insert_order('US',((10*x*holdings[1]['last'])/holdings[0]['last']),'MARKET','BUY')
                             self.wait(0.1)
                         else:
                             print('Adjust down var')
                             if holdings[1]['volume'] > 0:
-                                self.insert_order('BRIC',10,'MARKET','SELL')
-                                self.insert_order('BOND',((10*holdings[1]['last'])/holdings[2]['last']),'MARKET','BUY')
+                                self.insert_order('US',10*x,'MARKET','SELL')
+                                self.insert_order('BRIC',20*x,'MARKET','SELL')
+                                self.insert_order('BOND',((10*x*holdings[0]['last']+20*x*holdings[1]['last'])/holdings[2]['last']),'MARKET','BUY')
                             else:
-                                self.insert_order('BRIC',10,'MARKET','BUY')
-                                self.insert_order('BOND',((10*holdings[1]['last'])/holdings[2]['last']),'MARKET','SELL')
+                                self.insert_order('BRIC',10*x,'MARKET','SELL')
+                                self.insert_order('BRIC',20*x,'MARKET','BUY')
+                                self.insert_order('BOND',((-10*x*holdings[0]['last']+20*x*holdings[1]['last'])/holdings[2]['last']),'MARKET','SELL')
                             self.wait(0.1)
                     
                     elif max(us_return,bric_return,bond_return) == bric_return:
                         if (var < 19900) & (var > 18000):
                             print('BRIC return highest')
-                            self.insert_order('US',10,'MARKET','SELL')
-                            self.insert_order('BOND',6,'MARKET','BUY')
-                            self.insert_order('BRIC',((10*holdings[0]['last']-6*holdings[2]['last'])/holdings[1]['last']),'MARKET','BUY')
+                            self.insert_order('US',10*x,'MARKET','SELL')
+                            self.insert_order('BOND',4*x,'MARKET','BUY')
+                            self.insert_order('BRIC',((10*x*holdings[0]['last']-4*holdings[2]['last'])/holdings[1]['last']),'MARKET','BUY')
                             self.wait(0.1)
                         elif var <= 18000:
                             if max(us_return,bond_return) == us_return:
-                                self.insert_order('BOND',10,'MARKET','SELL')
-                                self.insert_order('BRIC',((10*holdings[2]['last'])/holdings[0]['last']),'MARKET','BUY')
+                                self.insert_order('BOND',10*x,'MARKET','SELL')
+                                self.insert_order('BRIC',((10*x*holdings[2]['last'])/holdings[0]['last']),'MARKET','BUY')
                             else:
-                                self.insert_order('US',10,'MARKET','SELL')
-                                self.insert_order('BRIC',((10*holdings[0]['last'])/holdings[0]['last']),'MARKET','BUY')
+                                self.insert_order('US',10*x,'MARKET','SELL')
+                                self.insert_order('BRIC',((10*x*holdings[0]['last'])/holdings[0]['last']),'MARKET','BUY')
                             self.wait(0.1)
                         else:
                             print('Adjust down var')
                             if holdings[0]['volume'] > 0:
-                                self.insert_order('US',10,'MARKET','SELL')
-                                self.insert_order('BOND',((10*holdings[0]['last'])/holdings[2]['last']),'MARKET','BUY')
+                                self.insert_order('US',20*x,'MARKET','SELL')
+                                self.insert_order('BRIC',10*x,'MARKET','SELL')
+                                self.insert_order('BOND',((20*x*holdings[0]['last']+10*x*holdings[1]['last'])/holdings[2]['last']),'MARKET','BUY')
                             else:
-                                self.insert_order('US',10,'MARKET','BUY')
-                                self.insert_order('BOND',((10*holdings[0]['last'])/holdings[2]['last']),'MARKET','SELL')
+                                self.insert_order('US',20*x,'MARKET','BUY')
+                                self.insert_order('BRIC',10*x,'MARKET','SELL')
+                                self.insert_order('BOND',((20*x*holdings[0]['last']-10*x*holdings[1]['last'])/holdings[2]['last']),'MARKET','SELL')
                             self.wait(0.1)
                         
                     else:
                         print('BOND return highest')
                         if max(us_return,bric_return) == us_return:
-                            self.insert_order('US',5,'MARKET','SELL')
-                            self.insert_order('BRIC',15,'MARKET','SELL')
-                            self.insert_order('BOND',((5*holdings[0]['last']+15*holdings[1]['last'])/holdings[2]['last']),'MARKET','BUY')
+                            if holdings[0]['volume'] < 0:
+                                self.insert_order('US',4*x,'MARKET','BUY')
+                                self.insert_order('BRIC',6*x,'MARKET','SELL')
+                                self.insert_order('BOND',((-4*x*holdings[0]['last']+6*x*holdings[1]['last'])/holdings[2]['last']),'MARKET','BUY')
+                            elif holdings[1]['volume'] < 0:
+                                self.insert_order('US',6*x,'MARKET','SELL')
+                                self.insert_order('BRIC',4*x,'MARKET','BUY')
+                                self.insert_order('BOND',((6*x*holdings[0]['last']-4*x*holdings[1]['last'])/holdings[2]['last']),'MARKET','BUY')
+                            else:
+                                self.insert_order('US',3*x,'MARKET','SELL')
+                                self.insert_order('BRIC',7*x,'MARKET','SELL')
+                                self.insert_order('BOND',((3*x*holdings[0]['last']+7*x*holdings[1]['last'])/holdings[2]['last']),'MARKET','BUY')
                         else:
-                            self.insert_order('US',15,'MARKET','SELL')
-                            self.insert_order('BRIC',5,'MARKET','SELL')
-                            self.insert_order('BOND',((15*holdings[0]['last']+5*holdings[1]['last'])/holdings[2]['last']),'MARKET','BUY')
+                            if holdings[0]['volume'] < 0:
+                                self.insert_order('US',4*x,'MARKET','BUY')
+                                self.insert_order('BRIC',6*x,'MARKET','SELL')
+                                self.insert_order('BOND',((-4*holdings[0]['last']+6*holdings[1]['last'])/holdings[2]['last']),'MARKET','BUY')
+                            elif holdings[1]['volume'] < 0:
+                                self.insert_order('US',6*x,'MARKET','SELL')
+                                self.insert_order('BRIC',4*x,'MARKET','BUY')
+                                self.insert_order('BOND',((6*holdings[0]['last']-4*holdings[1]['last'])/holdings[2]['last']),'MARKET','BUY')
+                            else:
+                                self.insert_order('US',6*x,'MARKET','SELL')
+                                self.insert_order('BRIC',4*x,'MARKET','SELL')
+                                self.insert_order('BOND',((6*holdings[0]['last']+4*holdings[1]['last'])/holdings[2]['last']),'MARKET','BUY')
                         self.wait(0.1)
             
             print("rebalance done")

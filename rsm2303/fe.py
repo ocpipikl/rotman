@@ -2,14 +2,10 @@
 from rit_lib import rit
 
 # %%
-case = rit(mode='auto')
-
-# %%
 counter = 0
 while counter < 10:
     case = rit(mode='auto')
     counter += 1# %%
-case = rit(mode='debug')
 # %%
 rit.insert_order('BRIC',2900,'MARKET','BUY')
 # %%

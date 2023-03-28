@@ -324,7 +324,7 @@ class rit:
             )
             time.sleep(wait_time)
 
-    def lt3(self,safety_margin = 1000,price_epsilon = 0.02):
+    def lt3(self,safety_margin = 0,price_epsilon = 0.02):
         while self.rit_status == 1:
             case_res = self.get_case()
             case = case_res.json()
@@ -476,7 +476,7 @@ class rit:
                             ##check os position after complete the order book and fill the rest with MARKET
                             wait_time = 0
                             open_orders_count = 1
-                            while (wait_time < 8) & (open_orders_count != 0):
+                            while (wait_time < 60) & (open_orders_count != 0):
                                 self.wait(0.25)
                                 open_orders_res = self.get_orders()
                                 open_orders = open_orders_res.json()

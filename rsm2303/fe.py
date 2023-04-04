@@ -3,9 +3,9 @@ from rit_lib import rit
 
 # %%
 counter = 0
-while counter < 10:
+while counter < 100:
     case = rit(mode='auto')
-    counter += 1# %%
+    counter += 1
 # %%
 rit.insert_order('BRIC',2900,'MARKET','BUY')
 # %%
@@ -14,9 +14,7 @@ a = rit(mode='debug')
 #%%
 a.insert_order('BRIC',2900,'MARKET','BUY')
 # %%
-order_book_a = case.get_order_book('THOR_A').json()
-order_book_m = case.get_order_book('THOR_M').json()
-
+87000 in range(87000,87001)
 # %%
 ask_a = order_book_a['asks']
 ask_m = order_book_m['asks']

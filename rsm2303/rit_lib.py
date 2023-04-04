@@ -86,7 +86,7 @@ class rit:
         
         limit = [i['trade_limit'] for i in self.limits if i['ticker'] == ticker][0] - 1
         number_of_orders = math.ceil(quantity/limit)
-        print(f"{number_of_orders} in total will be sent to RIT...")
+        # print(f"{number_of_orders} in total will be sent to RIT...")
         res = []
         order_count = 1
         while order_count < number_of_orders:
@@ -107,8 +107,8 @@ class rit:
                 }
             order_req = requests.post(f"{self.url}/orders",headers=self.headers,params = payload)
             order = order_req.json()
-            print(f"Order #{order_count} is sent, quantity = {payload['quantity']}!")
-            print(f"Order #{order_count} status: {order_req.status_code}; RIT confirmation message: {order}")
+            # print(f"Order #{order_count} is sent, quantity = {payload['quantity']}!")
+            # print(f"Order #{order_count} status: {order_req.status_code}; RIT confirmation message: {order}")
             res.append(order)
             order_count += 1
         if len(args) == 0:
@@ -128,8 +128,8 @@ class rit:
             } 
         order_req = requests.post(f"{self.url}/orders",headers=self.headers,params = payload)
         order = order_req.json()
-        print(f"Order #{order_count} is sent!")
-        print(f"Order #{order_count} status: {order_req.status_code}; RIT confirmation message: {order}")
+        # print(f"Order #{order_count} is sent!")
+        # print(f"Order #{order_count} status: {order_req.status_code}; RIT confirmation message: {order}")
         res.append(order)
         return res
 
@@ -205,6 +205,33 @@ class rit:
             nbbo = sorted(nbbo_raw,key=lambda d:d['price'],reverse=True)
 
         return nbbo
+    
+    def check_tender_registration(self,tender_action,tender_ticker,tender_quantity,original_position):
+        tender_tic = time.perf_counter()
+        position_res = self.get_securities(tender_ticker)
+        position = position_res.json()[0]['position']
+        time_elapse = 0
+        if tender_action == "BUY":
+            bound1 = original_position + tender_quantity
+            bound2 = tender_quantity
+        else:
+            bound1 = original_position - tender_quantity
+            bound2 = tender_quantity * -1
+        # print(f"bound: {int(bound1),int(bound2),position}")
+        if bound1 > bound2:
+            check_range = range(int(bound2),int(bound1)+1)
+        else:
+            check_range = range(int(bound1),int(bound2)+1)
+        # print(f"tender check logic: {position not in check_range}")
+        while (position not in check_range) & (time_elapse < 1.5):
+            position_res = self.get_securities(tender_ticker)
+            position = position_res.json()[0]['position']
+            # print(f"tender check logic: {position not in check_range}")
+            self.wait(0.05)
+            tender_toc = time.perf_counter()
+            time_elapse = tender_toc - tender_tic
+            # print(f"check tender time: {time_elapse}")
+
 
 
     ##check connection and query case info
@@ -379,17 +406,17 @@ class rit:
                             print(f"recall order book takes: {tender_register_toc-time.perf_counter():0.6f}s")
                             limit_order_tic = time.perf_counter()
                             for order in order_book:
-                                print('next order book',os_position,order['quantity'] - order['quantity_filled'])
+                                # print('next order book',os_position,order['quantity'] - order['quantity_filled'])
                                 if (os_position > 0) & (os_position>=(order['quantity'] - order['quantity_filled'])) & (order['quantity'] - order['quantity_filled'] > 0):
                                     # print('sell logic 1') ##Line for debugging
                                     order_req = self.insert_order(tender_ticker,(order['quantity']-order['quantity_filled']),"LIMIT","SELL",tender_price+price_epsilon)
                                     os_position -= order['quantity']-order['quantity_filled']
-                                    print(f"{os_position} remaining to fill")
+                                    # print(f"{os_position} remaining to fill")
                                 elif (os_position > 0) & (os_position<(order['quantity'] - order['quantity_filled'])) & (order['quantity'] - order['quantity_filled'] > 0):
                                     # print('sell logic 2') ##Line for debugging
                                     order_req = self.insert_order(tender_ticker,os_position,"LIMIT","SELL",tender_price+price_epsilon)
                                     os_position = 0
-                                    print(f"{os_position} remaining to fill")
+                                    # print(f"{os_position} remaining to fill")
                             print(f"All limit orders submitted in {time.perf_counter()-limit_order_tic:0.6f}s") #this is a timer for testing
                             ##check os position after complete the order book and fill the rest with MARKET
                             wait_time = 0
@@ -461,17 +488,17 @@ class rit:
                             print(f"recall order book takes: {tender_register_toc-time.perf_counter():0.6f}s")
                             limit_order_tic = time.perf_counter()
                             for order in order_book:
-                                print('next order book',os_position,order['quantity'] - order['quantity_filled'])
+                                # print('next order book',os_position,order['quantity'] - order['quantity_filled'])
                                 if (os_position > 0) & (os_position>=(order['quantity'] - order['quantity_filled'])) & (order['quantity'] - order['quantity_filled'] > 0):
                                     # print('buy logic 1') ##Line for debugging
                                     order_req = self.insert_order(tender_ticker,(order['quantity']-order['quantity_filled']),"LIMIT","BUY",tender_price-price_epsilon)
                                     os_position -= order['quantity']-order['quantity_filled']
-                                    print(f"{os_position} remaining to fill")
+                                    # print(f"{os_position} remaining to fill")
                                 elif (os_position > 0) & (os_position<(order['quantity'] - order['quantity_filled'])) & (order['quantity'] - order['quantity_filled'] > 0):
                                     # print('buy logic 2') ##Line for debugging
                                     order_req = self.insert_order(tender_ticker,os_position,"LIMIT","BUY",tender_price-price_epsilon)
                                     os_position = 0
-                                    print(f"{os_position} remaining to fill")
+                                    # print(f"{os_position} remaining to fill")
                             print(f"All limit orders submitted in {time.perf_counter()-limit_order_tic:0.6f}s") #this is a timer for testing
                             ##check os position after complete the order book and fill the rest with MARKET
                             wait_time = 0
@@ -515,7 +542,8 @@ class rit:
             self.wait(self.refresh_rate)
             self.rit_status = rit_status_map[case['status']]
                             
-    def algo3(self,safety_margin = 500, price_epsilon = 0.02):
+    def algo3(self,safety_margin = 0, price_epsilon = 0.01):
+        tender_count = 0
         while self.rit_status == 1:
             case_res = self.get_case()
             case = case_res.json()
@@ -524,231 +552,315 @@ class rit:
             tenders = tenders_res.json()
             if len(tenders) > 0:
                 print(f"Tender order detected!")
-                for tender in tenders:
-                    tender_id = tender['tender_id']
-                    tender_action = tender['action']
-                    tender_ticker = tender['ticker']
-                    tender_quantiy = tender['quantity']
-                    tender_price = tender['price']
-                    print(f"Tender Order: {tender_id}, {tender_action},{tender_ticker},{tender_price},{tender_quantiy}")
-                    tender_register_tic = time.perf_counter()
-                    if tender_action == "BUY":
-                        live_orders = self.get_nbbo("THOR_M","THOR_A","bids")
-                        remaining_fill = tender_quantiy
-                        profitable_volume = 0
-                        profit = 0
-                        for order in live_orders:
-                            if  remaining_fill >= order['quantity'] - order['quantity_filled']:
-                                profit += (order['quantity'] - order['quantity_filled']) * (order['price'] - tender_price)
-                                remaining_fill = remaining_fill - (order['quantity'] - order['quantity_filled'])
-                            else:
-                                profit += remaining_fill * (order['price'] - tender_price)
-                                remaining_fill = 0
-                                break
-                        print(f"safety margin: {profit}")
-                        print(f"safety volume: {profitable_volume}")
-                        # print(f"{live_orders}") ##this line to show calculated safe margin vs order book for debugging
-                        if profit > safety_margin:
-                            execute_tender_status = 0
-                            while execute_tender_status != 200:
-                                execute_tender_req = self.execute_tender(tender_id,True)
-                                execute_tender_status = execute_tender_req.status_code
-                                self.wait(0.05)
-                            print(f"Accept tender offer")
-                            print(f"Tender Offer execution status: {execute_tender_status}; RIT confirmation message: {execute_tender_req.json()}")
-                            tender_register_status = tender_quantiy
-                            while tender_register_status != 0:
-                                position_res = self.get_securities(tender_ticker)
-                                position = position_res.json()[0]['position']
-                                tender_register_status = tender_quantiy - position
-                                self.wait(0.05)
-                            tender_register_toc = time.perf_counter()
-                            print(f"Tender registered in {tender_register_toc - tender_register_tic:0.6f}s...")
-                            os_position = tender_quantiy
-                            order_book = self.get_nbbo("THOR_M","THOR_A","bids")
-                            # print(order_book)
-                            # print(f'order book 2:{order_book}') ##Line for debugging
-                            ##run down the order book from the top
-                            print(f"recall order book takes: {tender_register_toc-time.perf_counter():0.6f}s")
-                            limit_order_tic = time.perf_counter()
-                            for order in order_book:
-                                print('next order book',os_position,order['quantity'] - order['quantity_filled'])
-                                if (os_position > 0) & (os_position>=(order['quantity'] - order['quantity_filled'])) & (order['quantity'] - order['quantity_filled'] > 0):
-                                    # print('sell logic 1') ##Line for debugging
-                                    order_req = self.insert_order(order['ticker'],(order['quantity']-order['quantity_filled']),"LIMIT","SELL",tender_price+price_epsilon)
-                                    os_position -= order['quantity']-order['quantity_filled']
-                                    print(f"{os_position} remaining to fill")
-                                    self.wait(0.05)
-                                elif (os_position > 0) & (os_position<(order['quantity'] - order['quantity_filled'])) & (order['quantity'] - order['quantity_filled'] > 0):
-                                    # print('sell logic 2') ##Line for debugging
-                                    order_req = self.insert_order(order['ticker'],os_position,"LIMIT","SELL",tender_price+price_epsilon)
-                                    os_position = 0
-                                    print(f"{os_position} remaining to fill")
-                                    break
-                            print(f"All limit orders submitted in {time.perf_counter()-limit_order_tic:0.6f}s") #this is a timer for testing
-                            #check os position after complete the order book and fill the rest with MARKET
-                            wait_time = 0
-                            open_orders_count = 1
-                            while (wait_time < 20) & (open_orders_count != 0):
-                                self.wait(0.25)
-                                open_orders_res = self.get_orders()
-                                open_orders = open_orders_res.json()
-                                open_orders_count = len(open_orders)
-                                limit_order_toc = time.perf_counter()
-                                print(f"check open orders: {wait_time+1}, {open_orders_count}")
-                                wait_time += 1
+                tender_id = tenders[0]['tender_id']
+                tender_action = tenders[0]['action']
+                tender_ticker = tenders[0]['ticker']
+                tender_quantiy = tenders[0]['quantity']
+                tender_price = tenders[0]['price']
+                print(f"Tender Order: {tender_id}, {tender_action},{tender_ticker},{tender_price},{tender_quantiy}")
+                tender_register_tic = time.perf_counter()
+                if tender_action == "BUY":
+                    live_orders = self.get_nbbo("THOR_M","THOR_A","bids")
+                    remaining_fill = tender_quantiy
+                    profitable_volume = 0
+                    profit = 0
+                    for order in live_orders:
+                        if  remaining_fill >= order['quantity'] - order['quantity_filled']:
+                            profit += (order['quantity'] - order['quantity_filled']) * (order['price'] - tender_price)
+                            remaining_fill = remaining_fill - (order['quantity'] - order['quantity_filled'])
+                        else:
+                            profit += remaining_fill * (order['price'] - tender_price)
+                            remaining_fill = 0
+                            break
+                    print(f"safety margin: {profit}")
+                    print(f"safety volume: {profitable_volume}")
+                    # print(f"{live_orders}") ##this line to show calculated safe margin vs order book for debugging
+                    accpet_tender = True
+                    position_res = self.get_securities(tender_ticker)
+                    position = position_res.json()[0]['position']
+                    if tender_count == 0:
+                        if profit < safety_margin:
+                            accpet_tender = False
+                    else:
+                        if (profit < safety_margin) & ((tender_action == last_accepted_tender_action) | (int(position) == 0)):
+                            accpet_tender = False
+                    if accpet_tender == True:
+                        if tender_count == 0:
+                            last_accepted_tender_price = tender_price
+                        else:
+                            if position + tender_quantiy < 100000 :
+                                last_accepted_tender_price = tender_price
+                        last_accepted_tender_action = tender_action
+                        tender_count += 1
+                        execute_tender_status = 0
+                        while execute_tender_status != 200:
+                            execute_tender_req = self.execute_tender(tender_id,True)
+                            execute_tender_status = execute_tender_req.status_code
+                            self.wait(0.05)
+                        print(f"Accept tender offer")
+                        print(f"Tender Offer execution status: {execute_tender_status}; RIT confirmation message: {execute_tender_req.json()}")
+                        position_res = self.get_securities(tender_ticker)
+                        position = position_res.json()[0]['position']
+                        self.check_tender_registration(tender_action,tender_ticker,tender_quantiy,position)
+                        tender_register_toc = time.perf_counter()
+                        print(f"Tender registered in {tender_register_toc - tender_register_tic:0.6f}s...")
+                        #check os position after complete the order book and fill the rest with MARKET
+                        # wait_time = 0
+                        # open_orders_count = 1
+                        # while (wait_time < 20) & (open_orders_count != 0):
+                        #     self.wait(0.25)
+                        #     open_orders_res = self.get_orders()
+                        #     open_orders = open_orders_res.json()
+                        #     open_orders_count = len(open_orders)
+                        #     limit_order_toc = time.perf_counter()
+                        #     print(f"check open orders: {wait_time+1}, {open_orders_count}")
+                        #     wait_time += 1
 
-                            if (open_orders_count != 0) | (os_position != 0):
-                                print('There are still unfilled limit orders; These orders will be cancelled now')
-                                for open_order in open_orders:
-                                    del_req = self.delete_order(open_order['order_id'])
-                                    print(f"Delete order {open_order['order_id']}; Status: {del_req.status_code}")
-                                self.wait(1)
-                                os_position = self.get_securities(tender_ticker).json()[0]['position']
-                                print(f"outstanding: {os_position}")
-                                while os_position != 0:
-                                    print(f"All order book cleared, {os_position} remaining, fill with market order")
-                                    order_book = self.get_nbbo("THOR_M","THOR_A",'bids')
-                                    for order in order_book:
-                                        print('next order book',os_position,order['quantity'] - order['quantity_filled'])
-                                        if (os_position > 0) & (os_position>=(order['quantity'] - order['quantity_filled'])) & (order['quantity'] - order['quantity_filled'] > 0):
-                                            # print('sell logic 1') ##Line for debugging
-                                            order_req = self.insert_order(order['ticker'],(order['quantity']-order['quantity_filled']),"MARKET","SELL")
-                                            os_position -= order['quantity']-order['quantity_filled']
-                                            print(f"{os_position} remaining to fill")
-                                            self.wait(0.1)
-                                        elif (os_position > 0) & (os_position<(order['quantity'] - order['quantity_filled'])) & (order['quantity'] - order['quantity_filled'] > 0):
-                                            # print('sell logic 2') ##Line for debugging
-                                            order_req = self.insert_order(order['ticker'],os_position,"MARKET","SELL")
-                                            os_position = 0
-                                            print(f"{os_position} remaining to fill")
-                                            break
-                                    self.wait(1)
-                                    os_position = self.get_securities(tender_ticker).json()[0]['position']
-                                print(f"Position flattened by market orders")
-                            else:
-                                print(f"tender order cleared with limit orders")
-                                print(f"All limit orders are filled in {limit_order_toc-limit_order_tic:0.6f}s!!!")
-                            
-                        else: 
-                            execute_tender_status = 0
-                            while execute_tender_status != 200:
-                                execute_tender_req = self.execute_tender(tender_id,False)
-                                execute_tender_status = execute_tender_req.status_code
-                            print(f"Reject tender offer")
-                            print(f"Tender Offer execution status: {execute_tender_status}; RIT confirmation message: {execute_tender_req.json()}")
+                        # if (open_orders_count != 0) | (os_position != 0):
+                        #     print('There are still unfilled limit orders; These orders will be cancelled now')
+                        #     for open_order in open_orders:
+                        #         del_req = self.delete_order(open_order['order_id'])
+                        #         print(f"Delete order {open_order['order_id']}; Status: {del_req.status_code}")
+                        #     self.wait(1)
+                        #     os_position = self.get_securities(tender_ticker).json()[0]['position']
+                        #     print(f"outstanding: {os_position}")
+                        #     while os_position != 0:
+                        #         print(f"All order book cleared, {os_position} remaining, fill with market order")
+                        #         order_book = self.get_nbbo("THOR_M","THOR_A",'bids')
+                        #         for order in order_book:
+                        #             print('next order book',os_position,order['quantity'] - order['quantity_filled'])
+                        #             if (os_position > 0) & (os_position>=(order['quantity'] - order['quantity_filled'])) & (order['quantity'] - order['quantity_filled'] > 0):
+                        #                 # print('sell logic 1') ##Line for debugging
+                        #                 order_req = self.insert_order(order['ticker'],(order['quantity']-order['quantity_filled']),"MARKET","SELL")
+                        #                 os_position -= order['quantity']-order['quantity_filled']
+                        #                 print(f"{os_position} remaining to fill")
+                        #                 self.wait(0.1)
+                        #             elif (os_position > 0) & (os_position<(order['quantity'] - order['quantity_filled'])) & (order['quantity'] - order['quantity_filled'] > 0):
+                        #                 # print('sell logic 2') ##Line for debugging
+                        #                 order_req = self.insert_order(order['ticker'],os_position,"MARKET","SELL")
+                        #                 os_position = 0
+                        #                 print(f"{os_position} remaining to fill")
+                        #                 break
+                        #         self.wait(1)
+                        #         os_position = self.get_securities(tender_ticker).json()[0]['position']
+                        #     print(f"Position flattened by market orders")
+                        # else:
+                        #     print(f"tender order cleared with limit orders")
+                        #     print(f"All limit orders are filled in {limit_order_toc-limit_order_tic:0.6f}s!!!")
+                        
+                    else: 
+                        execute_tender_status = 0
+                        while execute_tender_status != 200:
+                            execute_tender_req = self.execute_tender(tender_id,False)
+                            execute_tender_status = execute_tender_req.status_code
+                        print(f"Reject tender offer")
+                        print(f"Tender Offer execution status: {execute_tender_status}; RIT confirmation message: {execute_tender_req.json()}")
 
-                    elif tender_action == "SELL":
-                        live_orders = self.get_nbbo("THOR_M","THOR_A","asks")
-                        remaining_fill = tender_quantiy
-                        profitable_volume = 0
-                        profit = 0
-                        for order in live_orders:
-                            if  remaining_fill >= order['quantity'] - order['quantity_filled']:
-                                profit += (order['quantity'] - order['quantity_filled']) * (order['price'] - tender_price) * -1
-                                remaining_fill = remaining_fill - (order['quantity'] - order['quantity_filled'])
-                            else:
-                                profit += remaining_fill * (order['price'] - tender_price) * -1
-                                remaining_fill = 0
-                                break
-                        print(f"safety margin: {profit}")
-                        print(f"safety volume: {profitable_volume}")
-                        # print(f"{live_orders}") ##This line is for debugging
-                        if profit > safety_margin:
-                            execute_tender_status = 0
-                            while execute_tender_status != 200:
-                                execute_tender_req = self.execute_tender(tender_id,True)
-                                execute_tender_status = execute_tender_req.status_code
-                                self.wait(0.1)
-                            print(f"Tender Offer execution status: {execute_tender_status}; RIT confirmation message: {execute_tender_req.json()}")
-                            tender_register_status = tender_quantiy
-                            while tender_register_status != 0:
-                                position_res = self.get_securities(tender_ticker)
-                                position = position_res.json()[0]['position']
-                                tender_register_status = tender_quantiy + position
-                                self.wait(0.1)
-                            tender_register_toc = time.perf_counter()
-                            print(f"Tender registered in {tender_register_toc - tender_register_tic:0.6f}s...")
-                            os_position = tender_quantiy
-                            order_book = self.get_nbbo("THOR_M","THOR_A","asks")
-                            # print(order_book)
-                            # print(f'order book 2:{order_book}') ##Line for debugging
-                            ##run down the order book
-                            print(f"recall order book takes: {tender_register_toc-time.perf_counter():0.6f}s")
-                            limit_order_tic = time.perf_counter()
-                            for order in order_book:
-                                print('next order book',os_position,order['quantity'] - order['quantity_filled'])
-                                if (os_position > 0) & (os_position>=(order['quantity'] - order['quantity_filled'])) & (order['quantity'] - order['quantity_filled'] > 0):
-                                    # print('buy logic 1') ##Line for debugging
-                                    order_req = self.insert_order(order['ticker'],(order['quantity']-order['quantity_filled']),"LIMIT","BUY",tender_price-price_epsilon)
-                                    os_position -= order['quantity']-order['quantity_filled']
-                                    print(f"{os_position} remaining to fill")
-                                    self.wait(0.05)
-                                elif (os_position > 0) & (os_position<(order['quantity'] - order['quantity_filled'])) & (order['quantity'] - order['quantity_filled'] > 0):
-                                    # print('buy logic 2') ##Line for debugging
-                                    order_req = self.insert_order(order['ticker'],os_position,"LIMIT","BUY",tender_price-price_epsilon)
-                                    os_position = 0
-                                    print(f"{os_position} remaining to fill")
-                                    break
-                            print(f"All limit orders submitted in {time.perf_counter()-limit_order_tic:0.6f}s") #this is a timer for testing
-                            ##check os position after complete the order book and fill the rest with MARKET
-                            wait_time = 0
-                            open_orders_count = 1
-                            while (wait_time < 20) & (open_orders_count != 0):
-                                self.wait(0.25)
-                                open_orders_res = self.get_orders()
-                                open_orders = open_orders_res.json()
-                                open_orders_count = len(open_orders)
-                                limit_order_toc = time.perf_counter()
-                                print(f"check open orders: {wait_time+1}, {open_orders_count}")
-                                wait_time += 1
+                elif tender_action == "SELL":
+                    live_orders = self.get_nbbo("THOR_M","THOR_A","asks")
+                    remaining_fill = tender_quantiy
+                    profitable_volume = 0
+                    profit = 0
+                    for order in live_orders:
+                        if  remaining_fill >= order['quantity'] - order['quantity_filled']:
+                            profit += (order['quantity'] - order['quantity_filled']) * (order['price'] - tender_price) * -1
+                            remaining_fill = remaining_fill - (order['quantity'] - order['quantity_filled'])
+                        else:
+                            profit += remaining_fill * (order['price'] - tender_price) * -1
+                            remaining_fill = 0
+                            break
+                    print(f"safety margin: {profit}")
+                    print(f"safety volume: {profitable_volume}")
+                    # print(f"{live_orders}") ##This line is for debugging
+                    accpet_tender = True
+                    position_res = self.get_securities(tender_ticker)
+                    position = position_res.json()[0]['position']
+                    if tender_count == 0:
+                        if profit < safety_margin:
+                            accpet_tender = False
+                    else:
+                        if (profit < safety_margin) & ((tender_action == last_accepted_tender_action) | (int(position) == 0)):
+                            accpet_tender = False
+                    if accpet_tender == True:
+                        if tender_count == 0:
+                            last_accepted_tender_price = tender_price
+                        else:
+                            if position - tender_quantiy > -100000:
+                                last_accepted_tender_price = tender_price
+                        last_accepted_tender_action = tender_action
+                        tender_count += 1
+                        execute_tender_status = 0
+                        while execute_tender_status != 200:
+                            execute_tender_req = self.execute_tender(tender_id,True)
+                            execute_tender_status = execute_tender_req.status_code
+                            self.wait(0.1)
+                        print(f"Tender Offer execution status: {execute_tender_status}; RIT confirmation message: {execute_tender_req.json()}")
+                        self.check_tender_registration(tender_action,tender_ticker,tender_quantiy,position)
+                        tender_register_toc = time.perf_counter()
+                        print(f"Tender registered in {tender_register_toc - tender_register_tic:0.6f}s...")
+                        
+                        ##check os position after complete the order book and fill the rest with MARKET
+                        # wait_time = 0
+                        # open_orders_count = 1
+                        # while (wait_time < 20) & (open_orders_count != 0):
+                        #     self.wait(0.25)
+                        #     open_orders_res = self.get_orders()
+                        #     open_orders = open_orders_res.json()
+                        #     open_orders_count = len(open_orders)
+                        #     limit_order_toc = time.perf_counter()
+                        #     print(f"check open orders: {wait_time+1}, {open_orders_count}")
+                        #     wait_time += 1
 
-                            if (open_orders_count != 0) | (os_position != 0):
-                                print('There are still unfilled limit orders; These orders will be cancelled now')
-                                for open_order in open_orders:
-                                    del_req = self.delete_order(open_order['order_id'])
-                                    print(f"Delete order {open_order['order_id']}; Status: {del_req.status_code}")
-                                self.wait(1)
-                                os_position = (self.get_securities(tender_ticker).json()[0]['position'])*-1
-                                print(f"outstanding: {os_position}")
-                                while os_position != 0:
-                                    print(f"All order book cleared, {os_position} remaining, fill with market order")
-                                    order_book = self.get_nbbo("THOR_M","THOR_A",'asks')
-                                    for order in order_book:
-                                        print('next order book',os_position,order['quantity'] - order['quantity_filled'])
-                                        if (os_position > 0) & (os_position>=(order['quantity'] - order['quantity_filled'])) & (order['quantity'] - order['quantity_filled'] > 0):
-                                            # print('sell logic 1') ##Line for debugging
-                                            order_req = self.insert_order(order['ticker'],(order['quantity']-order['quantity_filled']),"MARKET","BUY")
-                                            os_position -= order['quantity']-order['quantity_filled']
-                                            print(f"{os_position} remaining to fill")
-                                            self.wait(0.1)
-                                        elif (os_position > 0) & (os_position<(order['quantity'] - order['quantity_filled'])) & (order['quantity'] - order['quantity_filled'] > 0):
-                                            # print('sell logic 2') ##Line for debugging
-                                            order_req = self.insert_order(order['ticker'],os_position,"MARKET","BUY")
-                                            os_position = 0
-                                            print(f"{os_position} remaining to fill")
-                                            break
-                                    self.wait(1)
-                                    os_position = (self.get_securities(tender_ticker).json()[0]['position'])*-1
-                                print(f"Position flattened by market orders")
-                            else:
-                                print(f"tender order cleared with limit orders")
-                                print(f"All limit orders are filled in {limit_order_toc-limit_order_tic:0.6f}s!!!")
+                        # if (open_orders_count != 0) | (os_position != 0):
+                        #     print('There are still unfilled limit orders; These orders will be cancelled now')
+                        #     for open_order in open_orders:
+                        #         del_req = self.delete_order(open_order['order_id'])
+                        #         print(f"Delete order {open_order['order_id']}; Status: {del_req.status_code}")
+                        #     self.wait(1)
+                        #     os_position = (self.get_securities(tender_ticker).json()[0]['position'])*-1
+                        #     print(f"outstanding: {os_position}")
+                        #     while os_position != 0:
+                        #         print(f"All order book cleared, {os_position} remaining, fill with market order")
+                        #         order_book = self.get_nbbo("THOR_M","THOR_A",'asks')
+                        #         for order in order_book:
+                        #             print('next order book',os_position,order['quantity'] - order['quantity_filled'])
+                        #             if (os_position > 0) & (os_position>=(order['quantity'] - order['quantity_filled'])) & (order['quantity'] - order['quantity_filled'] > 0):
+                        #                 # print('sell logic 1') ##Line for debugging
+                        #                 order_req = self.insert_order(order['ticker'],(order['quantity']-order['quantity_filled']),"MARKET","BUY")
+                        #                 os_position -= order['quantity']-order['quantity_filled']
+                        #                 print(f"{os_position} remaining to fill")
+                        #                 self.wait(0.1)
+                        #             elif (os_position > 0) & (os_position<(order['quantity'] - order['quantity_filled'])) & (order['quantity'] - order['quantity_filled'] > 0):
+                        #                 # print('sell logic 2') ##Line for debugging
+                        #                 order_req = self.insert_order(order['ticker'],os_position,"MARKET","BUY")
+                        #                 os_position = 0
+                        #                 print(f"{os_position} remaining to fill")
+                        #                 break
+                        #         self.wait(1)
+                        #         os_position = (self.get_securities(tender_ticker).json()[0]['position'])*-1
+                        #     print(f"Position flattened by market orders")
+                        # else:
+                        #     print(f"tender order cleared with limit orders")
+                        #     print(f"All limit orders are filled in {limit_order_toc-limit_order_tic:0.6f}s!!!")
+    
+                    else: 
+                        execute_tender_status = 0
+                        while execute_tender_status != 200:
+                            execute_tender_req = self.execute_tender(tender_id,False)
+                            execute_tender_status = execute_tender_req.status_code
+                        print(f"Reject tender offer")
+                        print(f"Tender Offer execution status: {execute_tender_status}; RIT confirmation message: {execute_tender_req.json()}")
 
-                                                            
-                                
-                        else: 
-                            execute_tender_status = 0
-                            while execute_tender_status != 200:
-                                execute_tender_req = self.execute_tender(tender_id,False)
-                                execute_tender_status = execute_tender_req.status_code
-                            print(f"Reject tender offer")
-                            print(f"Tender Offer execution status: {execute_tender_status}; RIT confirmation message: {execute_tender_req.json()}")
-            
             else:
-                if (case['ticks_per_period']-case['tick']) / 10 == (case['ticks_per_period']-case['tick']) // 10:
+                if (case['ticks_per_period']-case['tick']) / 30 == (case['ticks_per_period']-case['tick']) // 30:
                     print(f"No tender order, {case['ticks_per_period']-case['tick']} seconds remaining")
-
+            
+            
+            if tender_count > 0:
+                position_res = self.get_securities(tender_ticker)
+                position = position_res.json()[0]['position']
+                open_orders_res = self.get_orders()
+                open_orders = open_orders_res.json()
+                open_orders_count = len(open_orders)
+                if open_orders_count > 0:
+                    print('There are still unfilled limit orders; These orders will be cancelled now')
+                    for open_order in open_orders:
+                        del_req = self.delete_order(open_order['order_id'])
+                        # print(f"Delete order {open_order['order_id']}; Status: {del_req.status_code}")
+                    self.wait(1)
+                
+                position_res = self.get_securities(tender_ticker)
+                position = position_res.json()[0]['position']
+                
+                if (case['tick'] <= 290) & (position != 0):
+                    if last_accepted_tender_action == "BUY":
+                        os_position = position
+                        order_book = self.get_nbbo("THOR_M","THOR_A","bids")
+                        # print(order_book)
+                        # print(f'order book 2:{order_book}') ##Line for debugging
+                        ##run down the order book from the top
+                        print(f"recall order book takes: {tender_register_toc-time.perf_counter():0.6f}s")
+                        limit_order_tic = time.perf_counter()
+                        for order in order_book:
+                            # print('next order book',os_position,order['quantity'] - order['quantity_filled'])
+                            if (os_position > 0) & (os_position>=(order['quantity'] - order['quantity_filled'])) & (order['quantity'] - order['quantity_filled'] > 0):
+                                # print('sell logic 1') ##Line for debugging
+                                order_req = self.insert_order(order['ticker'],(order['quantity']-order['quantity_filled']),"LIMIT","SELL",last_accepted_tender_price+price_epsilon)
+                                os_position -= order['quantity']-order['quantity_filled']
+                                # print(f"{os_position} remaining to fill")
+                                self.wait(0.05)
+                            elif (os_position > 0) & (os_position<(order['quantity'] - order['quantity_filled'])) & (order['quantity'] - order['quantity_filled'] > 0):
+                                # print('sell logic 2') ##Line for debugging
+                                order_req = self.insert_order(order['ticker'],os_position,"LIMIT","SELL",last_accepted_tender_price+price_epsilon)
+                                os_position = 0
+                                # print(f"{os_position} remaining to fill")
+                                break
+                        print(f"All limit orders submitted in {time.perf_counter()-limit_order_tic:0.6f}s") #this is a timer for testing
+                        self.wait(2)
+                    elif last_accepted_tender_action == "SELL":
+                        os_position = position * -1
+                        order_book = self.get_nbbo("THOR_M","THOR_A","asks")
+                        # print(order_book)
+                        # print(f'order book 2:{order_book}') ##Line for debugging
+                        ##run down the order book
+                        print(f"recall order book takes: {tender_register_toc-time.perf_counter():0.6f}s")
+                        limit_order_tic = time.perf_counter()
+                        for order in order_book:
+                            # print('next order book',os_position,order['quantity'] - order['quantity_filled'])
+                            if (os_position > 0) & (os_position>=(order['quantity'] - order['quantity_filled'])) & (order['quantity'] - order['quantity_filled'] > 0):
+                                # print('buy logic 1') ##Line for debugging
+                                order_req = self.insert_order(order['ticker'],(order['quantity']-order['quantity_filled']),"LIMIT","BUY",last_accepted_tender_price-price_epsilon)
+                                os_position -= order['quantity']-order['quantity_filled']
+                                # print(f"{os_position} remaining to fill")
+                                self.wait(0.05)
+                            elif (os_position > 0) & (os_position<(order['quantity'] - order['quantity_filled'])) & (order['quantity'] - order['quantity_filled'] > 0):
+                                # print('buy logic 2') ##Line for debugging
+                                order_req = self.insert_order(order['ticker'],os_position,"LIMIT","BUY",last_accepted_tender_price-price_epsilon)
+                                os_position = 0
+                                # print(f"{os_position} remaining to fill")
+                                break
+                        print(f"All limit orders submitted in {time.perf_counter()-limit_order_tic:0.6f}s") #this is a timer for testing
+                        self.wait(2)
+                elif (case['tick'] > 290) & (position != 0):
+                    if position > 0: 
+                        os_position = position
+                        order_book = self.get_nbbo("THOR_M","THOR_A","bids")
+                        # print(order_book)
+                        # print(f'order book 2:{order_book}') ##Line for debugging
+                        ##run down the order book from the top
+                        print(f"recall order book takes: {tender_register_toc-time.perf_counter():0.6f}s")
+                        limit_order_tic = time.perf_counter()
+                        for order in order_book:
+                            # print('next order book',os_position,order['quantity'] - order['quantity_filled'])
+                            if (os_position > 0) & (os_position>=(order['quantity'] - order['quantity_filled'])) & (order['quantity'] - order['quantity_filled'] > 0):
+                                # print('sell logic 1') ##Line for debugging
+                                order_req = self.insert_order(order['ticker'],(order['quantity']-order['quantity_filled']),"MARKET","SELL")
+                                os_position -= order['quantity']-order['quantity_filled']
+                                # print(f"{os_position} remaining to fill")
+                                self.wait(0.1)
+                            elif (os_position > 0) & (os_position<(order['quantity'] - order['quantity_filled'])) & (order['quantity'] - order['quantity_filled'] > 0):
+                                # print('sell logic 2') ##Line for debugging
+                                order_req = self.insert_order(order['ticker'],os_position,"MARKET","SELL")
+                                os_position = 0
+                                # print(f"{os_position} remaining to fill")
+                                break
+                    else:
+                        os_position = position * -1
+                        order_book = self.get_nbbo("THOR_M","THOR_A","asks")
+                        for order in order_book:
+                            # print('next order book',os_position,order['quantity'] - order['quantity_filled'])
+                            if (os_position > 0) & (os_position>=(order['quantity'] - order['quantity_filled'])) & (order['quantity'] - order['quantity_filled'] > 0):
+                                # print('sell logic 1') ##Line for debugging
+                                order_req = self.insert_order(order['ticker'],(order['quantity']-order['quantity_filled']),"MARKET","BUY")
+                                os_position -= order['quantity']-order['quantity_filled']
+                                # print(f"{os_position} remaining to fill")
+                                self.wait(0.1)
+                            elif (os_position > 0) & (os_position<(order['quantity'] - order['quantity_filled'])) & (order['quantity'] - order['quantity_filled'] > 0):
+                                # print('sell logic 2') ##Line for debugging
+                                order_req = self.insert_order(order['ticker'],os_position,"MARKET","BUY")
+                                os_position = 0
+                                # print(f"{os_position} remaining to fill")
+                                break
             self.wait(self.refresh_rate)
             self.rit_status = rit_status_map[case['status']]
 
